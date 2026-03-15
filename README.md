@@ -2,11 +2,11 @@
 
 Real-time Japanese dialogue translator and vocabulary trainer for Nintendo Switch games. Points a phone camera at your TV, reads the dialogue box, and gives you a live translation plus a full word-by-word breakdown to help you learn Japanese as you play.
 
-Fully local — no cloud APIs. Works with any video source — phone camera, capture card, or webcam.
+Fully local — no cloud APIs and dependence on external LLMs. Works with any video source — phone camera, capture card, or webcam.
 
 ![Platform](https://img.shields.io/badge/Platform-macOS%20Apple%20Silicon-lightgrey) ![LLM](https://img.shields.io/badge/LLM-Ollama%20qwen2.5%3A7b-green) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-> This project was built through extensive iteration and experimentation — trying different OCR engines, vision models, LLM sizes, preprocessing approaches, and architectural patterns before arriving at the current design. The repo reflects the final state across four milestone versions. The full development story is documented in the [accompanying blog post](#). *(link coming soon)*
+> This project was built through extensive iteration and experimentation — trying different OCR engines, vision models, LLM sizes, preprocessing approaches, and architectural patterns before arriving at the current design. The repo reflects the final state across three milestone versions. The full development story is documented in the [accompanying blog post](#). *(link coming soon)*
 
 ---
 
