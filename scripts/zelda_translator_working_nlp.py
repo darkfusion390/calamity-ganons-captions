@@ -180,24 +180,30 @@ state = {
 
 latest_frame_jpg = None
 frame_lock        = threading.Lock()
+_ollama_lock      = threading.Lock()  # serialises translate + learn LLM calls — prevents
+                                      # concurrent requests garbling Ollama responses
+_file_lock        = threading.Lock()  # serialises all vocab.json + lessons.json reads/writes
+                                      # prevents partial writes from concurrent Flask + learn_loop access
 app = Flask(__name__)
 
 # ── Vocab manager ─────────────────────────────────────────────────────────────
 
 def load_vocab():
-    try:
-        with open(VOCAB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {
-            "words":    {},
-            "kanji":    {},
-            "stats":    {"total_lines": 0, "new_today": 0, "last_session": ""},
-        }
+    with _file_lock:
+        try:
+            with open(VOCAB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {
+                "words":    {},
+                "kanji":    {},
+                "stats":    {"total_lines": 0, "new_today": 0, "last_session": ""},
+            }
 
 def save_vocab(vocab):
-    with open(VOCAB_FILE, "w", encoding="utf-8") as f:
-        json.dump(vocab, f, ensure_ascii=False, indent=2)
+    with _file_lock:
+        with open(VOCAB_FILE, "w", encoding="utf-8") as f:
+            json.dump(vocab, f, ensure_ascii=False, indent=2)
 
 def get_familiarity(entry):
     """
@@ -230,15 +236,17 @@ def get_familiarity(entry):
 # ── Lessons store ─────────────────────────────────────────────────────────────
 
 def load_lessons():
-    try:
-        with open(LESSONS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+    with _file_lock:
+        try:
+            with open(LESSONS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
 def save_lessons(lessons):
-    with open(LESSONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(lessons, f, ensure_ascii=False, indent=2)
+    with _file_lock:
+        with open(LESSONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(lessons, f, ensure_ascii=False, indent=2)
 
 def append_lesson(japanese, lesson):
     """Append acknowledged lesson to lessons.json, keep last 50."""
@@ -509,11 +517,13 @@ def ollama_call(prompt):
             "num_batch": 256,
         }
     }
-    r = requests.post(OLLAMA_URL, json=payload, timeout=120)
-    r.raise_for_status()
+    with _ollama_lock:
+        r = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        r.raise_for_status()
+        response = r.json()["response"].strip()
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
     state["llm_calls"] += 1
-    return r.json()["response"].strip(), elapsed_ms
+    return response, elapsed_ms
 
 def call_translate(japanese, ocr_ms=0):
     """Fast path — LLM returns only romaji + translation as JSON."""
