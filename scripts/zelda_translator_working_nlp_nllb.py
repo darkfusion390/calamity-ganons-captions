@@ -76,7 +76,12 @@ def _get_nllb():
             print(f"⏳  Loading NLLB model ({TRANSLATION_MODEL}) …")
             _nllb_tokenizer = AutoTokenizer.from_pretrained(TRANSLATION_MODEL)
             _nllb_model     = AutoModelForSeq2SeqLM.from_pretrained(TRANSLATION_MODEL)
-            print("✅  NLLB model ready.")
+            import torch
+            if torch.backends.mps.is_available():
+                _nllb_model = _nllb_model.to("mps")
+                print("✅  NLLB model ready — running on Apple MPS (GPU).")
+            else:
+                print("✅  NLLB model ready — running on CPU.")
     return _nllb_tokenizer, _nllb_model
 
 # MeCab POS tag → human-readable role for beginners
@@ -529,6 +534,9 @@ def nmt_translate(japanese: str) -> tuple[str, list[str], float, int]:
             truncation=True,
             max_length=512,
         )
+        # Move inputs to same device as model (MPS or CPU)
+        device = next(model.parameters()).device
+        inputs = {k: v.to(device) for k, v in inputs.items()}
         target_lang_id = tokenizer.convert_tokens_to_ids("eng_Latn")
 
         try:
