@@ -1,0 +1,15 @@
+image_name,ocr_text,source_file
+training_image_20260318_173627.jpg,うん？なんじゃ？,zelda_translator_working_nlp.py
+training_image_20260318_173641.jpg,のう…・お主,zelda_translator_working_nlp.py
+training_image_20260318_173642.jpg,どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_173704.jpg,のう…・お主 どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_173708.jpg,どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_173709.jpg,のう…・・お主 どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_173710.jpg,どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_173959.jpg,のう…・お主 どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_174000.jpg,どこか行くところが あるんじゃないかの？,zelda_translator_working_nlp.py
+training_image_20260318_174007.jpg,うん？なんじゃ？,zelda_translator_working_nlp.py
+training_image_20260318_174013.jpg,たき火に ゆっくりあたって また焼きリンゴでも こしらえるとするかのう,zelda_translator_working_nlp.py
+training_image_20260318_174807.jpg,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう,zelda_translator_av_reading_match.py
+training_image_20260318_174909.jpg,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう,zelda_translator_av_reading_match.py
+training_image_20260318_175216.jpg,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう,zelda_translator_av_reading_match.py
