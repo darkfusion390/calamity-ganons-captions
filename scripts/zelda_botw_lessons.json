@@ -1143,5 +1143,220 @@
       }
     ],
     "kanji": []
+  },
+  {
+    "time": "2026-03-18 17:38:49",
+    "japanese": "うん？なんじゃ？",
+    "romaji": "un ? nan ja ?",
+    "translation": "Hun? What's going on?",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "うん",
+        "reading": "un",
+        "meaning": "yes",
+        "role": "interjection",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "？",
+        "reading": "?",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "なん",
+        "reading": "nan",
+        "meaning": "what",
+        "role": "pronoun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "？",
+        "reading": "?",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": []
+  },
+  {
+    "time": "2026-03-18 17:40:02",
+    "japanese": "どこか行くところが あるんじゃないかの？",
+    "romaji": "doko ka iku tokoro ga aru n ja nai ka no ?",
+    "translation": "Gonna go somewhere, aren't you?",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "どこ",
+        "reading": "doko",
+        "meaning": "where",
+        "role": "pronoun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "か",
+        "reading": "ka",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "行く",
+        "reading": "iku",
+        "meaning": "to go",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ところ",
+        "reading": "tokoro",
+        "meaning": "place",
+        "role": "noun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ある",
+        "reading": "aru",
+        "meaning": "to be",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ん",
+        "reading": "n",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ない",
+        "reading": "nai",
+        "meaning": "nonexistent",
+        "role": "adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "か",
+        "reading": "ka",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "の",
+        "reading": "no",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "？",
+        "reading": "?",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "行",
+        "reading": "kou",
+        "meaning": "going",
+        "example": "ぎょう",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-18 17:40:22",
+    "japanese": "うん？なんじゃ？",
+    "romaji": "un ? nan ja ?",
+    "translation": "Hun? What's going on?",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "うん",
+        "reading": "un",
+        "meaning": "yes",
+        "role": "interjection",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "？",
+        "reading": "?",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "なん",
+        "reading": "nan",
+        "meaning": "what",
+        "role": "pronoun",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "？",
+        "reading": "?",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": []
   }
 ]

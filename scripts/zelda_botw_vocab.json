@@ -219,11 +219,11 @@
     "ところ": {
       "reading": "tokoro",
       "meaning": "place",
-      "times_seen": 1,
+      "times_seen": 2,
       "correct_recalls": 0,
       "total_recalls": 0,
       "first_seen": "2026-03-16",
-      "last_seen": "2026-03-16"
+      "last_seen": "2026-03-18"
     },
     "大き": {
       "reading": "ooki",
@@ -273,20 +273,56 @@
     "うん": {
       "reading": "un",
       "meaning": "yes",
-      "times_seen": 1,
+      "times_seen": 3,
       "correct_recalls": 0,
       "total_recalls": 0,
       "first_seen": "2026-03-16",
-      "last_seen": "2026-03-16"
+      "last_seen": "2026-03-18"
     },
     "なん": {
       "reading": "nan",
       "meaning": "what",
-      "times_seen": 1,
+      "times_seen": 3,
       "correct_recalls": 0,
       "total_recalls": 0,
       "first_seen": "2026-03-16",
-      "last_seen": "2026-03-16"
+      "last_seen": "2026-03-18"
+    },
+    "どこ": {
+      "reading": "doko",
+      "meaning": "where",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "行く": {
+      "reading": "iku",
+      "meaning": "to go",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "ある": {
+      "reading": "aru",
+      "meaning": "to be",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "ない": {
+      "reading": "nai",
+      "meaning": "nonexistent",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
     }
   },
   "kanji": {
@@ -401,11 +437,19 @@
       "correct_recalls": 0,
       "total_recalls": 0,
       "first_seen": "2026-03-16"
+    },
+    "行": {
+      "reading": "kou",
+      "meaning": "going",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
     }
   },
   "stats": {
-    "total_lines": 9,
-    "new_today": 46,
-    "last_session": "2026-03-16"
+    "total_lines": 12,
+    "new_today": 5,
+    "last_session": "2026-03-18"
   }
 }

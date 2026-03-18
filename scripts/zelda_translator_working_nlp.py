@@ -57,7 +57,16 @@ from jamdict import Jamdict
 # jamdict-data must be installed separately: pip install jamdict-data
 _tagger   = fugashi.Tagger()
 _kakasi   = pykakasi.kakasi()
-_jmd      = Jamdict()
+# Jamdict wraps a SQLite connection which cannot be shared across threads.
+# Use threading.local() so each thread gets its own Jamdict instance,
+# created lazily on first use — avoids the "SQLite object created in a
+# different thread" error when learn_loop calls lookup from a daemon thread.
+_jmd_local = threading.local()
+
+def _get_jmd():
+    if not hasattr(_jmd_local, 'jmd'):
+        _jmd_local.jmd = Jamdict()
+    return _jmd_local.jmd
 
 # MeCab POS tag → human-readable role for beginners.
 # MeCab returns part-of-speech in Japanese (e.g. 名詞 = noun). This dict
@@ -105,7 +114,8 @@ _SKIP_VOCAB = {
 # the NLP libraries above, which are faster and more accurate than the 7b model.
 OLLAMA_URL        = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL = "qwen3:8b"
-IP_WEBCAM_URL     = "http://192.168.1.107:8080/video"
+# VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = 0  # OpenCV webcam capture device index (default 0)
 
 GAME_NAME    = "zelda_botw_"
 LOG_FILE     = "pixel_llm_log.csv"
@@ -871,11 +881,11 @@ def _lookup_meaning(surface, reading_kana):
         return ""
 
     try:
-        gloss = _first_gloss(_jmd.lookup(surface))
+        gloss = _first_gloss(_get_jmd().lookup(surface))
         if gloss:
             return gloss
         if reading_kana and reading_kana != surface:
-            gloss = _first_gloss(_jmd.lookup(reading_kana))
+            gloss = _first_gloss(_get_jmd().lookup(reading_kana))
             if gloss:
                 return gloss
     except Exception as e:
@@ -891,7 +901,7 @@ def _lookup_kanji(char):
     Returns None if the character isn't found or an error occurs.
     """
     try:
-        result = _jmd.lookup(char)
+        result = _get_jmd().lookup(char)
         if not result.chars:
             return None
         c = result.chars[0]
@@ -1143,7 +1153,7 @@ latest_crop_lock = threading.Lock()
 
 def pixel_diff_thread(bounds):
     global latest_crop
-    cap_diff = cv2.VideoCapture(IP_WEBCAM_URL)
+    cap_diff = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap_diff.isOpened():
         print("⚠️  Pixel diff thread: cannot open camera")
         return
@@ -1173,7 +1183,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
     """Save the raw (pre-preprocessed) crop as training_image_<timestamp>.jpg and
     append a row to ocr_training_log.csv.  Called in a background thread on every
     Gate 4 pass — one entry per unique dialogue line that triggers an LLM call.
-    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED.""\"
+    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED."""
     try:
         os.makedirs(OCR_TRAINING_DIR, exist_ok=True)
         ts        = time.strftime("%Y%m%d_%H%M%S")
@@ -1438,10 +1448,10 @@ def translation_loop(cap, bounds):
 def capture_loop():
     bounds = load_bounds()
     state["bounds"] = bounds
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
         state["error"] = "Cannot connect to camera"
-        print("❌  Cannot connect. Check IP_WEBCAM_URL.")
+        print("❌  Cannot connect. Check VIDEO_SOURCE.")
         return
     print("✅  Connected.")
     translation_loop(cap, bounds)
@@ -2392,7 +2402,7 @@ def unload_model():
 
 if __name__ == '__main__':
     print("🎮  Zelda Translator")
-    print(f"📱  Camera:  {IP_WEBCAM_URL}")
+    print(f"📱  Camera:  {VIDEO_SOURCE}")
     print(f"🤖  Model:   {TRANSLATION_MODEL}")
     print(f"📚  Vocab:   {VOCAB_FILE}")
     print(f"🗃  Cache:   {CACHE_FILE}")

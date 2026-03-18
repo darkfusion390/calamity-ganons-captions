@@ -184,7 +184,7 @@ fi
 # ── Phone reminder ────────────────────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}📱  Reminder: Make sure IP Webcam is running on your S21${NC}"
-echo -e "    Check ${CYAN}IP_WEBCAM_URL${NC} in the script matches your phone's current IP."
+echo -e "    Check ${CYAN}VIDEO_SOURCE${NC} in the script matches your phone's current IP."
 echo -e "    (Phone IPs can change after restarting if not set to static)"
 echo ""
 
