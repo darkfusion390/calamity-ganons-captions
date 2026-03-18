@@ -1,10 +1,9 @@
 """
-zelda_translator_zeldacc.py
-============================
+zelda_translator_paddle_reading_match.py
+=========================================
 Pipeline:
   Step 1 — OCR:         PaddleOCR (PP-OCRv5 mobile) — Windows compatible
-                        Preprocessing: zeldacc preset (threshold-160 → CC furigana
-                        removal at original res → 2x Lanczos → black border)
+                        + reading-match furigana filter (MeCab + jamdict)
   Step 2 — NLP:         fugashi (MeCab) for word segmentation + POS
                         pykakasi for romaji conversion
                         jamdict for kanji/word dictionary lookups
@@ -23,11 +22,11 @@ Vocab tracking: vocab.json saved next to this script.
     learning (1-9 seen) → yellow underline
     familiar (10+ seen) → green underline
 
-UI: http://localhost:5002
+UI: http://localhost:5004
 
 Install deps:
-  pip install paddleocr paddlepaddle pillow
-  pip install fugashi unidic-lite pykakasi jamdict
+  pip install paddleocr paddlepaddle
+  pip install fugashi unidic-lite pykakasi jamdict jamdict-data
 """
 
 import cv2
@@ -43,7 +42,6 @@ import tempfile
 from datetime import date
 from flask import Flask, render_template_string, jsonify, Response, request as flask_request
 
-from PIL import Image
 from paddleocr import PaddleOCR
 
 # ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
@@ -539,11 +537,10 @@ def push_history(entry):
     if len(state["history"]) > 1:
         state["history"].pop()
 
-# ── OCR ───────────────────────────────────────────────────────────────────────
-
-# ── PaddleOCR initialisation ─────────────────────────────────────────────────
+# ── PaddleOCR initialisation ──────────────────────────────────────────────────
 # Loaded once at module level — model init takes ~2s, reusing avoids that cost
 # on every OCR call.
+
 _paddle_ocr = PaddleOCR(
     text_detection_model_name="PP-OCRv5_mobile_det",
     text_recognition_model_name="PP-OCRv5_mobile_rec",
@@ -586,6 +583,126 @@ def _postprocess_paddle(pairs: list) -> list:
         if len(t.strip()) > 3:
             out.append((t, s))
     return out
+
+# ── Reading-match furigana filter ─────────────────────────────────────────────
+# Drops pure-kana OCR tokens that exactly match a kanji reading collected from
+# the same text, identifying them as furigana that survived row-density + the
+# bimodal height filter.  Two-stage reading collection:
+#   Stage 1 — MeCab compound-word readings (handles e.g. 食材 → しょくざい)
+#   Stage 2 — jamdict per-character on/kun'yomi (handles single-kanji furigana
+#              like び above 火, み above 見, ぬし above 主)
+# Both stages reuse the already-initialised _tagger and _jmd instances.
+
+def _is_pure_kana(text: str) -> bool:
+    """True if text contains only hiragana, katakana, and/or prolonged sound mark."""
+    if not text:
+        return False
+    for ch in text:
+        if not ('\u3040' <= ch <= '\u309f'    # hiragana
+                or '\u30a0' <= ch <= '\u30ff'  # katakana
+                or ch == '\u30fc'):             # prolonged sound mark ー
+            return False
+    return True
+
+def _has_kanji(text: str) -> bool:
+    """True if text contains at least one CJK unified ideograph."""
+    return any('\u4e00' <= ch <= '\u9fff' for ch in text)
+
+def _kata_to_hira(text: str) -> str:
+    """Convert katakana to hiragana for normalised comparison."""
+    return "".join(
+        chr(ord(c) - 0x60) if '\u30a1' <= c <= '\u30f6' else c
+        for c in text
+    )
+
+def _collect_kanji_readings(text: str) -> set:
+    """
+    Collect all kana readings of kanji in text using _tagger (MeCab) and _jmd (jamdict).
+
+    Stage 1 — MeCab compound-word readings:
+      For each token containing kanji, add its predicted kana reading to the set.
+      Handles multi-kanji words correctly (e.g. 食材 → しょくざい, 栄養 → えいよう).
+
+    Stage 2 — Per-character jamdict readings:
+      For each individual kanji character, look up all on'yomi and kun'yomi entries.
+      Strips okurigana suffixes (み.る → み, い.く → い) so single-mora furigana
+      like び (above 火) or み (above 見) match even when MeCab embeds them in a
+      compound reading.
+
+    Returns a set of hiragana strings; any pure-kana OCR token that exactly
+    matches one of these should be treated as furigana and dropped.
+    """
+    readings: set = set()
+
+    # Stage 1: MeCab compound-word readings
+    try:
+        for word in _tagger(text):
+            if _has_kanji(word.surface):
+                try:
+                    kana = word.feature.kana
+                except AttributeError:
+                    kana = None
+                if kana:
+                    readings.add(_kata_to_hira(kana))
+                    readings.add(kana)
+    except Exception:
+        pass
+
+    # Stage 2: per-character on'yomi / kun'yomi via jamdict
+    seen_chars: set = set()
+    for ch in text:
+        if '\u4e00' <= ch <= '\u9fff' and ch not in seen_chars:
+            seen_chars.add(ch)
+            try:
+                result = _jmd.lookup(ch)
+                for char_entry in (result.chars or []):
+                    for rm_group in (char_entry.rm_groups or []):
+                        for reading in (rm_group.readings or []):
+                            r_val = getattr(reading, 'value', '') or ''
+                            if not r_val:
+                                continue
+                            # Strip okurigana (み.る → み) and irregular markers
+                            r_base = r_val.split('.')[0].split('―')[0].strip()
+                            if r_base and _is_pure_kana(r_base):
+                                readings.add(_kata_to_hira(r_base))
+            except Exception:
+                pass
+
+    return readings
+
+def filter_reading_match(texts: list) -> list:
+    """
+    Drop furigana tokens from a list of OCR text strings using reading-match.
+
+    Joins all tokens to give MeCab full sentence context for compound-word
+    segmentation, collects kanji readings via _collect_kanji_readings, then
+    removes any token that is pure kana and exactly matches a collected reading
+    (after katakana→hiragana normalisation).
+
+    Protected by design:
+      - Multi-kana content words (ゆっくり, もしかして) — not kanji readings
+      - Grammar particles — too short or absent from any kanji reading set
+      - Mixed kanji+kana tokens — never pure kana, never candidates for removal
+    """
+    if not texts:
+        return texts
+
+    joined = " ".join(texts)
+    readings = _collect_kanji_readings(joined)
+
+    if not readings:
+        return texts
+
+    kept = []
+    for t in texts:
+        t_stripped = t.strip()
+        t_hira = _kata_to_hira(t_stripped)
+        if _is_pure_kana(t_stripped) and t_hira in readings:
+            continue  # pure kana matching a kanji reading → furigana, drop
+        kept.append(t)
+    return kept
+
+# ── OCR ───────────────────────────────────────────────────────────────────────
 
 def paddle_ocr(frame):
     """Run PaddleOCR on a preprocessed BGR frame. Returns (japanese_text, elapsed_ms).
@@ -646,9 +763,13 @@ def paddle_ocr(frame):
     else:
         texts, scores = all_texts, all_scores
 
-    # Post-processing: fixes + noise filter, scores kept in sync
+    # Postprocessing: exact string fixes + noise-length filter, scores in sync
     filtered_pairs = _postprocess_paddle(list(zip(texts, scores)))
     texts = [t for t, _ in filtered_pairs]
+
+    # Reading-match filter: drop any surviving pure-kana token that exactly
+    # matches a kanji reading collected from the full text.
+    texts = filter_reading_match(texts)
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
     japanese = "\n".join(texts)
@@ -1134,65 +1255,24 @@ def call_learn(japanese, vocab, ocr_ms=0):
 
 # ── Preprocessing ─────────────────────────────────────────────────────────────
 
-def remove_furigana_components(pil_image):
-    """CC-based furigana removal with isolation guard.
-    Removes small glyphs that are isolated above/below main-text lines (furigana)
-    while preserving small kana (ゃ/っ/ょ) that sit on the same line as large chars.
-    Runs on the raw binary image BEFORE upscaling for accurate component sizing."""
-    arr     = np.array(pil_image.convert("L"))
-    dark_bg = np.mean(arr) < 127
-    binary  = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-    if num_labels <= 1:
-        return pil_image
-    heights = [stats[i, cv2.CC_STAT_HEIGHT] for i in range(1, num_labels)]
-    if not heights:
-        return pil_image
-    median_h           = float(np.median(heights))
-    furigana_threshold = median_h * 0.55
-    centres = [
-        stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT] / 2.0
-        for i in range(1, num_labels)
-    ]
-    large_indices = [
-        idx for idx in range(len(centres))
-        if stats[idx + 1, cv2.CC_STAT_HEIGHT] >= furigana_threshold
-    ]
-    out      = arr.copy()
-    bg_value = 255 if not dark_bg else 0
-    for i in range(1, num_labels):
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-        if h >= furigana_threshold or w >= median_h * 2:
-            continue
-        cy = centres[i - 1]
-        has_large_neighbour = any(
-            abs(centres[j] - cy) < median_h * 1.5
-            for j in large_indices
-        )
-        if not has_large_neighbour:
-            out[labels == i] = bg_value
-    return Image.fromarray(out)
-
-
 def preprocess_crop(crop):
-    """Zeldacc preset preprocessing.
-    Pipeline: threshold-160 → CC furigana removal at original res → 2x Lanczos → black border.
-    CC removal runs before upscaling so component sizes are accurate (no Lanczos halo artifacts).
-    Matches the 'zeldacc' preset in japanese_ocr_compare.py exactly."""
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
         return crop.copy()
+    row_density = mask.sum(axis=1) / 255.0
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)
-    # CC furigana removal at original resolution — before upscaling
-    pil_pre   = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
-    pil_clean = remove_furigana_components(pil_pre)
-    result    = cv2.cvtColor(np.array(pil_clean), cv2.COLOR_RGB2BGR)
-    h, w   = result.shape[:2]
+    non_zero_densities = row_density[row_density > 0]
+    if len(non_zero_densities) > 0:
+        median_density = float(np.median(non_zero_densities))
+        furigana_threshold = median_density * 0.42
+        for i, d in enumerate(row_density):
+            if 0 < d < furigana_threshold:
+                result[i, :] = 0
+    h, w = result.shape[:2]
     result = cv2.resize(result, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
-    result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+    result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0,0,0))
     return result
 
 # ── Bounds loading ─────────────────────────────────────────────────────────────
@@ -2480,12 +2560,12 @@ if __name__ == '__main__':
     print(f"🤖  Model:   {TRANSLATION_MODEL}")
     print(f"📚  Vocab:   {VOCAB_FILE}")
     print(f"🗃  Cache:   {CACHE_FILE}")
-    print(f"🌐  UI:      http://localhost:5002")
+    print(f"🌐  UI:      http://localhost:5004")
     print("─" * 40)
     load_translation_cache()
     threading.Thread(target=capture_loop, daemon=True).start()
     try:
-        app.run(host='0.0.0.0', port=5002, debug=False)
+        app.run(host='0.0.0.0', port=5004, debug=False)
     except KeyboardInterrupt:
         pass
     finally:
