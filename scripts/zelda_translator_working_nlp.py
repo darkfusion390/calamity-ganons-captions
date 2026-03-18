@@ -117,11 +117,13 @@ BOUNDS_FILE  = "bounds.json"
 QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 
 # ── OCR training data collection ──────────────────────────────────────────────
-# When enabled, saves the raw (pre-preprocessed) crop + a JSON sidecar every
-# time Gate 4 passes — i.e. once per unique stable dialogue line that will
-# trigger an LLM call. One image per new line of text, never duplicates.
+# When enabled, saves the raw (pre-preprocessed) crop as a JPEG and appends a
+# row to ocr_training_log.csv every time Gate 4 passes — i.e. once per unique
+# stable dialogue line that will trigger an LLM call. One image per new line,
+# never duplicates. Both image save and CSV append share this single toggle.
 OCR_TRAINING_ENABLED = True
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
+OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
 
 # ── Brightness gate ───────────────────────────────────────────────────────────
 BRIGHTNESS_GATE_HIGH = 80.0
@@ -1168,23 +1170,24 @@ latest_stable_lock   = threading.Lock()
 # ── OCR training data helpers ──────────────────────────────────────────────────
 
 def _save_ocr_training_sample(raw_crop, japanese: str):
-    """Save the raw (pre-preprocessed) crop and a JSON sidecar to ocr_training_data/.
-    Called in a background thread on every Gate 4 pass — one file per unique dialogue line.
-    Filename: YYYYMMDD_HHMMSS_<first 20 chars of japanese sanitised>.jpg"""
+    """Save the raw (pre-preprocessed) crop as training_image_<timestamp>.jpg and
+    append a row to ocr_training_log.csv.  Called in a background thread on every
+    Gate 4 pass — one entry per unique dialogue line that triggers an LLM call.
+    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED.""\"
     try:
         os.makedirs(OCR_TRAINING_DIR, exist_ok=True)
         ts        = time.strftime("%Y%m%d_%H%M%S")
-        safe_jp   = re.sub(r'[^\w\u3040-\u9fff]', '', japanese)[:20]
-        stem      = f"{ts}_{safe_jp}"
-        img_path  = os.path.join(OCR_TRAINING_DIR, stem + ".jpg")
-        json_path = os.path.join(OCR_TRAINING_DIR, stem + ".json")
+        img_name  = f"training_image_{ts}.jpg"
+        img_path  = os.path.join(OCR_TRAINING_DIR, img_name)
         cv2.imwrite(img_path, raw_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "japanese":  japanese,
-            }, f, ensure_ascii=False, indent=2)
-        print(f"📸  OCR sample saved: {stem}.jpg")
+        # Append row to shared CSV: image_name, ocr_text, source_file
+        csv_exists = os.path.exists(OCR_TRAINING_CSV)
+        with open(OCR_TRAINING_CSV, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not csv_exists:
+                writer.writerow(["image_name", "ocr_text", "source_file"])
+            writer.writerow([img_name, japanese, os.path.basename(__file__)])
+        print(f"📸  OCR training sample saved: {img_name}")
     except Exception as e:
         print(f"⚠️  OCR training save failed: {e}")
 
@@ -1270,7 +1273,7 @@ def ocr_loop(bounds):
                 vocab = load_vocab()
                 state["japanese"] = jp
                 state["annotated"] = annotate_japanese(jp, vocab)
-                # Save raw crop + sidecar for OCR comparison training data
+                # Save raw crop + OCR text for training data
                 if OCR_TRAINING_ENABLED:
                     threading.Thread(
                         target=_save_ocr_training_sample,
