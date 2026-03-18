@@ -119,7 +119,6 @@ TRANSLATION_MODEL = "qwen3:8b"
 VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
 
 GAME_NAME    = "zelda_botw_"
-LOG_FILE     = "pixel_llm_log.csv"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
 CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
@@ -520,13 +519,7 @@ def frame_diff(a, b):
     gb = cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
     return float(np.mean(np.abs(ga.astype(np.float32) - gb.astype(np.float32))))
 
-def log_entry(brightness, japanese, english):
-    file_exists = os.path.exists(LOG_FILE)
-    with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["timestamp", "brightness", "japanese", "english"])
-        writer.writerow([time.strftime("%H:%M:%S"), round(brightness, 1), japanese or "", english or ""])
+
 
 def update_preview(frame):
     global latest_frame_jpg
@@ -1411,7 +1404,6 @@ def translate_loop():
                 "translation": translation,
             }
             push_history(history_entry)
-            log_entry(state.get("brightness", 0), jp, translation)
             state["status"] = "Live"
             print(f"🔤  {jp} → {translation}")
         except Exception as e:
@@ -2355,7 +2347,6 @@ def acknowledge():
         "translation": state['lesson'].get("translation", ""),
     }
     push_history(history_entry)
-    log_entry(state.get('brightness', 0), state['lesson_japanese'], state['lesson'].get("translation", ""))
 
     state['lesson_pending_ack'] = False
     state['lesson_japanese']    = ''
