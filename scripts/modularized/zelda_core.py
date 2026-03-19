@@ -571,10 +571,15 @@ def normalize_for_dedup(text):
     (differing only in spacing or ellipses) map to the same key."""
     return re.sub(r'[\s、。・…]', '', text)
 
-def fuzzy_same(a, b, max_diff=1):
+def fuzzy_same(a, b, max_diff=None):
     """True if a and b differ by at most max_diff characters (edit distance).
-    Used for Gate 4 so minor OCR noise doesn't re-fire the LLM."""
+    Used for Gate 4 so minor OCR noise doesn't re-fire the LLM.
+    Tolerance scales with length: max(2, len(a) // 6) — e.g. a 12-char string
+    allows 2 differences, an 18-char string allows 3. Handles kanji OCR variance
+    where a single complex character (e.g. 激) is occasionally dropped or misread."""
     a, b = normalize_for_dedup(a), normalize_for_dedup(b)
+    if max_diff is None:
+        max_diff = max(2, len(a) // 6)
     if a == b:
         return True
     if abs(len(a) - len(b)) > max_diff:
@@ -1217,9 +1222,20 @@ def ocr_loop(bounds):
                 state["status"] = f"Reading... ({text_stable['stable_count']}/{STABLE_THRESHOLD})"
                 continue
 
-            # Gate 4: only publish if different from last published (fuzzy 1-char tolerance)
+            # Gate 3.5: suppress partial reads — if current text is a substring of
+            # last published and significantly shorter, the line is still typing out.
+            # Condition: current is ≤70% the length of last AND normalised current
+            # is contained within normalised last. Prevents the stable counter firing
+            # on an incomplete line before the full sentence finishes rendering.
             with latest_stable_lock:
                 last = latest_stable_jp["text"]
+            norm_jp   = normalize_for_dedup(jp)
+            norm_last = normalize_for_dedup(last)
+            if norm_last and len(norm_jp) <= len(norm_last) * 0.7 and norm_jp in norm_last:
+                state["status"] = "Dialogue typing..."
+                continue
+
+            # Gate 4: only publish if different from last published (fuzzy tolerance)
             if not fuzzy_same(jp, last):
                 with latest_stable_lock:
                     latest_stable_jp["text"]   = jp
