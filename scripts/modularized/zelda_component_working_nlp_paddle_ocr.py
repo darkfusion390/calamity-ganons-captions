@@ -10,10 +10,8 @@ import numpy as np
 import os
 import tempfile
 import time
+import threading
 import zelda_core
-
-import paddleocr
-from paddleocr import PaddleOCR
 
 # ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
 import fugashi
@@ -43,11 +41,13 @@ def _get_jmd():
         _jmd_local.jmd = Jamdict()
     return _jmd_local.jmd
 _mocr = PaddleOCR(
-    lang='japan',                   # Sets language
-    ocr_version='PP-OCRv3',         # FORCE v3 Mobile (avoids v5 Server bloat)
-    use_textline_orientation=True,  # New argument name (replaces use_angle_cls)
-    device='cpu'                    # New argument name (replaces use_gpu=False)
+    lang='japan',
+    ocr_version='PP-OCRv3',
+    use_textline_orientation=True,
+    device='cpu'
 )
+# PaddleOCR's predict() is not thread-safe on a shared model instance.
+_paddle_lock = threading.Lock()
 print(f"🔍  PaddleOCR {paddleocr.__version__} initialised — check 'Creating model:' lines above for active model names")
 
 
@@ -69,7 +69,8 @@ def apple_vision_ocr(frame):
         tmp_path = f.name
     cv2.imwrite(tmp_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
     try:
-        result = _mocr.predict(tmp_path)
+        with _paddle_lock:
+            result = _mocr.predict(tmp_path)
     finally:
         os.unlink(tmp_path)
 

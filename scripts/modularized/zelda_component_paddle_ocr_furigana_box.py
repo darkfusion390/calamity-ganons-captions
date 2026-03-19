@@ -14,6 +14,8 @@ import time
 import zelda_core
 
 
+import threading
+
 # ── PaddleOCR initialisation ─────────────────────────────────────────────────
 # Loaded once at module level — model init takes ~2s, reusing avoids that cost
 # on every OCR call.
@@ -25,6 +27,8 @@ _paddle_ocr = PaddleOCR(
     use_textline_orientation=False,
     device="cpu",
 )
+# PaddleOCR's predict() is not thread-safe on a shared model instance.
+_paddle_lock = threading.Lock()
 
 def _fix_exact(text: str) -> str:
     """Apply targeted exact-string substitutions from _EXACT_FIXES.
@@ -65,7 +69,8 @@ def paddle_ocr(frame):
     cv2.imwrite(tmp_path, frame)
 
     try:
-        result = _paddle_ocr.predict(tmp_path)
+        with _paddle_lock:
+            result = _paddle_ocr.predict(tmp_path)
     finally:
         os.unlink(tmp_path)
 
@@ -171,7 +176,11 @@ def preprocess_crop(crop):
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
-        return crop.copy()
+        # Nothing survived the threshold — crop is too dark to contain text.
+        # Return a black frame at the upscaled size so downstream always gets
+        # a consistent pure B&W image rather than a raw color frame.
+        h, w = crop.shape[:2]
+        return np.zeros((h * 2 + 40, w * 2 + 40, 3), dtype=np.uint8)
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)
     # CC furigana removal at original resolution — before upscaling
