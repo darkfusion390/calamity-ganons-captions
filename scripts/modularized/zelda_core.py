@@ -117,7 +117,7 @@ QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 # row to ocr_training_log.csv every time Gate 4 passes — i.e. once per unique
 # stable dialogue line that will trigger an LLM call. One image per new line,
 # never duplicates. Both image save and CSV append share this single toggle.
-OCR_TRAINING_ENABLED = True
+OCR_TRAINING_ENABLED = False
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
 OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
 
@@ -1187,6 +1187,7 @@ def ocr_loop(bounds):
             cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
             jp, ocr_ms = _ocr_fn(cleaned)
             jp = clean_ocr(jp)
+            print(f"🔍  OCR: {jp}")
             state["ocr_timing"] = {"ocr_ms": ocr_ms}
 
             # Gate 1: empty
