@@ -117,7 +117,7 @@ QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 # row to ocr_training_log.csv every time Gate 4 passes — i.e. once per unique
 # stable dialogue line that will trigger an LLM call. One image per new line,
 # never duplicates. Both image save and CSV append share this single toggle.
-OCR_TRAINING_ENABLED = False
+OCR_TRAINING_ENABLED = True
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
 OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
 
@@ -1155,7 +1155,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
 def ocr_loop(bounds):
     """Runs OCR continuously. When text passes all stability/dedup gates,
     writes to latest_stable_jp so both translate and learn loops can consume it."""
-    STABLE_THRESHOLD   = 4
+    STABLE_THRESHOLD   = 3
     MIN_JAPANESE_CHARS = 4
     text_stable = {"text": "", "stable_count": 0}
 
@@ -1192,7 +1192,7 @@ def ocr_loop(bounds):
             cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
             jp, ocr_ms = _ocr_fn(cleaned)
             jp = clean_ocr(jp)
-            print(f"🔍  OCR: {jp}")
+            print(f"🔍  OCR: {time.strftime('%H:%M:%S')} {jp}")
             state["ocr_timing"] = {"ocr_ms": ocr_ms}
 
             # Gate 1: empty
@@ -1222,20 +1222,9 @@ def ocr_loop(bounds):
                 state["status"] = f"Reading... ({text_stable['stable_count']}/{STABLE_THRESHOLD})"
                 continue
 
-            # Gate 3.5: suppress partial reads — if current text is a substring of
-            # last published and significantly shorter, the line is still typing out.
-            # Condition: current is ≤70% the length of last AND normalised current
-            # is contained within normalised last. Prevents the stable counter firing
-            # on an incomplete line before the full sentence finishes rendering.
+            # Gate 4: only publish if different from last published (fuzzy tolerance)
             with latest_stable_lock:
                 last = latest_stable_jp["text"]
-            norm_jp   = normalize_for_dedup(jp)
-            norm_last = normalize_for_dedup(last)
-            if norm_last and len(norm_jp) <= len(norm_last) * 0.7 and norm_jp in norm_last:
-                state["status"] = "Dialogue typing..."
-                continue
-
-            # Gate 4: only publish if different from last published (fuzzy tolerance)
             if not fuzzy_same(jp, last):
                 with latest_stable_lock:
                     latest_stable_jp["text"]   = jp
