@@ -4,10 +4,11 @@ zelda_translator_paddle_ocr_base_postprocessing.py
 Variant: PaddleOCR v5 mobile  |  Postprocessing: exact-string fixes + noise filter
 Preprocessing: row-density furigana suppression
 """
+import os
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 from paddleocr import PaddleOCR
 import cv2
 import numpy as np
-import os
 import tempfile
 import time
 import zelda_core
@@ -30,6 +31,14 @@ _paddle_ocr = PaddleOCR(
 # zelda_core runs OCR concurrently across regions — this lock serialises
 # all calls into _paddle_ocr so only one runs at a time.
 _paddle_lock = threading.Lock()
+# ── Postprocessing fixes ─────────────────────────────────────────────────────
+_EXACT_FIXES = {
+    # Add zero-false-positive exact-string substitutions here as they are
+    # discovered. Each entry must be verified against Japanese vocabulary
+    # before adding — a wrong fix here silently corrupts correct output.
+    # e.g. "誤認パターン": "正しい文字列",
+}
+
 
 def _fix_exact(text: str) -> str:
     """Apply targeted exact-string substitutions from _EXACT_FIXES.
@@ -77,7 +86,7 @@ def paddle_ocr(frame):
 
     all_texts, all_scores, all_heights, all_centres = [], [], [], []
     for res in (result or []):
-        polys  = res.get("rec_polys") or res.get("rec_boxes") or []
+        polys  = res.get("rec_polys") if res.get("rec_polys") is not None else (res.get("rec_boxes") or [])
         t_list = res.get("rec_texts") or []
         s_list = res.get("rec_scores") or []
         for poly, t, s in zip(polys, t_list, s_list):

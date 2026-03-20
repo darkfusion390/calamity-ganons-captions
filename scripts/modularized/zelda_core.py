@@ -1228,7 +1228,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
         img_name  = f"training_image_{ts}.jpg"
         img_path  = os.path.join(OCR_TRAINING_DIR, img_name)
         # temporarily turning off image save function to avoid filling up disk during development — re-enable when needed
-        # cv2.imwrite(img_path, raw_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        cv2.imwrite(img_path, raw_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
         # Append row to shared CSV: image_name, ocr_text, source_file
         csv_exists = os.path.exists(OCR_TRAINING_CSV)
         with open(OCR_TRAINING_CSV, "a", newline="", encoding="utf-8") as f:
@@ -1443,6 +1443,14 @@ def ocr_loop(regions, groups):
 
             gs = group_state[winner]
 
+            # Log dominant region OCR output every frame (after winner is known)
+            winner_regions = groups.get(winner, [winner])
+            region_ocr_log = "  ".join(
+                f"{r}={region_text.get(r, '').strip()!r}"
+                for r in winner_regions if region_chars.get(r, 0) >= MIN_REGION_CHARS
+            ) or "(no text)"
+            print(f"🔍  [{winner}] {region_ocr_log}")
+
             # Gate 1: empty
             if not jp or jp.upper() == "NONE":
                 gs["text"]         = ""
@@ -1457,8 +1465,14 @@ def ocr_loop(regions, groups):
                 state["status"] = "Listening..."
                 continue
 
-            # Gate 3: stability
-            if normalize_for_dedup(jp) == normalize_for_dedup(gs["text"]):
+            # Gate 3: stability — max_diff=1 so a single character variance
+            # (dropped stroke, misread glyph) doesn't reset the counter, but
+            # genuinely new text always resets regardless of length because
+            # fuzzy_same early-exits when len difference exceeds max_diff.
+            # Gate 4 uses the looser default tolerance to suppress LLM re-fires
+            # on minor noise once the text is already published.
+            fuzzy_gate3 = min(2, len(jp) // 10)
+            if fuzzy_same(jp, gs["text"], max_diff=fuzzy_gate3):
                 gs["stable_count"] += 1
             else:
                 gs["text"]         = jp
@@ -1469,7 +1483,8 @@ def ocr_loop(regions, groups):
             if gs["stable_count"] < STABLE_THRESHOLD:
                 state["status"] = f"Reading... ({gs['stable_count']}/{STABLE_THRESHOLD})"
                 continue
-
+            
+            print(f"OFFICIALLY STABILIZED")
             # Gate 4: only publish if different from last published
             with latest_stable_lock:
                 last = latest_stable_jp["text"]

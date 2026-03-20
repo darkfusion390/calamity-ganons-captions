@@ -4,13 +4,14 @@ zelda_translator_paddle_reading_match.py
 Variant: PaddleOCR v5 mobile  |  Postprocessing: reading-match furigana filter
 Preprocessing: row-density furigana suppression
 """
+import os
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 import re
 import threading
 from PIL import Image
 from paddleocr import PaddleOCR
 import cv2
 import numpy as np
-import os
 import tempfile
 import time
 import zelda_core
@@ -31,6 +32,13 @@ _paddle_ocr = PaddleOCR(
 )
 # PaddleOCR's predict() is not thread-safe on a shared model instance.
 _paddle_lock = threading.Lock()
+
+_EXACT_FIXES = {
+    # Add zero-false-positive exact-string substitutions here as they are
+    # discovered. Each entry must be verified against Japanese vocabulary
+    # before adding — a wrong fix here silently corrupts correct output.
+    # e.g. "誤認パターン": "正しい文字列",
+}
 
 def _fix_exact(text: str) -> str:
     """Apply targeted exact-string substitutions from _EXACT_FIXES.
