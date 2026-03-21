@@ -46,7 +46,7 @@ from datetime import datetime
 
 DEFAULT_PROCESSORS = [
     "processor_apple",
-    # "processor_paddle",
+    "processor_paddle",
     "processor_rapid_a",
     "processor_rapid_b",
     "processor_rapid_c",
